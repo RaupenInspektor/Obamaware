@@ -1,1 +1,102 @@
-ÿþ
+// safe_loader.cpp
+#include <windows.h>
+#include <iostream>
+#include <vector>
+
+static LPVOID g_alloc = nullptr;
+static SIZE_T g_allocSize = 0;
+
+LONG WINAPI VehLog(PEXCEPTION_POINTERS ep) {
+    if (!ep || !ep->ExceptionRecord) return EXCEPTION_CONTINUE_SEARCH;
+    auto &er = *ep->ExceptionRecord;
+    if (er.ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+        ULONG_PTR rw = er.ExceptionInformation[0];
+        ULONG_PTR addr = er.ExceptionInformation[1];
+        std::cerr << "VEH: ACCESS_VIOLATION " << (rw ? "WRITE" : "READ")
+                  << " faultAddr=0x" << std::hex << addr << std::dec << "\n";
+        if (g_alloc) {
+            uintptr_t base = (uintptr_t)g_alloc;
+            std::cerr << "  allocBase=0x" << std::hex << base << " size=0x" << g_allocSize << std::dec << "\n";
+            if (addr >= base && addr < base + g_allocSize)
+                std::cerr << "  -> Fault INSIDE allocated region.\n";
+            else
+                std::cerr << "  -> Fault OUTSIDE allocated region.\n";
+        }
+        std::cerr << "  ExceptionAddress = 0x" << std::hex
+                  << (uintptr_t)er.ExceptionAddress << std::dec << "\n";
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
+int main() {
+    PVOID vh = AddVectoredExceptionHandler(1, VehLog);
+
+    // Example payload (choose x64/x86 match your build). Replace with any test bytes.
+    unsigned char shell_x64[] = {
+        0x48,0x31,0xC0,
+        0x48,0xB8,0x88,0x77,0x66,0x55,0x44,0x33,0x22,0x11,
+        0x48,0x05,0x10,0x00,0x00,0x00,
+        0xC3
+    };
+    SIZE_T len = sizeof(shell_x64);
+
+    // Allocate RWX (or allocate RW and call VirtualProtect to RX after memcpy)
+    void* exec = VirtualAlloc(NULL, len, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (!exec) { std::cerr << "VirtualAlloc failed: " << GetLastError() << "\n"; return 1; }
+    g_alloc = exec; g_allocSize = len;
+
+    std::cout << "Allocated exec at: " << exec << " len=0x" << std::hex << len << std::dec << "\n";
+
+    // Decode/COPY DIRECTLY INTO exec (no stack VLA)
+    // If you have an encoded buffer, decode byte-by-byte into 'exec'.
+    memcpy(exec, shell_x64, len);
+
+    // Ensure CPU sees new instructions
+    if (!FlushInstructionCache(GetCurrentProcess(), exec, len))
+        std::cerr << "FlushInstructionCache failed: " << GetLastError() << "\n";
+
+    // Make executable (optional if you allocated RWX)
+    DWORD oldProtect = 0;
+    if (!VirtualProtect(exec, len, PAGE_EXECUTE_READ, &oldProtect)) {
+        std::cerr << "VirtualProtect failed: " << GetLastError() << "\n";
+    }
+
+    // Print memory info for debugging
+    MEMORY_BASIC_INFORMATION mbi;
+    if (VirtualQuery(exec, &mbi, sizeof(mbi))) {
+        std::cerr << "MBI: Base=0x" << std::hex << (uintptr_t)mbi.BaseAddress
+                  << " RegionSize=0x" << mbi.RegionSize
+                  << " Protect=0x" << mbi.Protect << std::dec << "\n";
+    }
+
+    // Choose how to run: direct call or in a thread (thread is safer under debugger)
+    bool useThread = true;
+
+    std::cout << "Calling payload at " << exec << " useThread=" << useThread << "\n";
+
+    if (useThread) {
+        HANDLE th = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)exec, NULL, 0, NULL);
+        if (!th) {
+            std::cerr << "CreateThread failed: " << GetLastError() << "\n";
+        } else {
+            WaitForSingleObject(th, INFINITE);
+            CloseHandle(th);
+        }
+    } else {
+        typedef void(*fn)();
+        fn f = (fn)exec;
+        __try { f(); } __except(EXCEPTION_EXECUTE_HANDLER) {
+            std::cerr << "SEH: exception code 0x" << std::hex << GetExceptionCode() << std::dec << "\n";
+        }
+    }
+
+    // Only free AFTER payload and any threads have finished
+    if (!VirtualFree(exec, 0, MEM_RELEASE)) {
+        std::cerr << "VirtualFree failed: " << GetLastError() << "\n";
+    } else {
+        std::cerr << "Memory freed\n";
+    }
+
+    RemoveVectoredExceptionHandler(vh);
+    return 0;
+}
