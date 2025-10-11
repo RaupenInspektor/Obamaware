@@ -86,7 +86,7 @@ class Obamaware(cmd.Cmd):
         args = ' '.join([i.strip() for i in line.strip().split(' ') if i])
         os.system('python DllProxyGenerator.py ' + args)
     
-    def do_shellCodeLoader(self, line):
+    def do_loader(self, line):
         print("")
         line = "null null " + line
         args = ' '.join([i.strip() for i in line.strip().split(' ') if i])
