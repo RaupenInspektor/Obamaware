@@ -157,6 +157,126 @@ Comments: Should work on IIS 6 and Above
     $ErrorActionPreference = $OrigError
 }
 
+function Get-ProcessTokenGroup {
+<#
+.SYNOPSIS
+
+Returns all SIDs that the current token context is a part of, whether they are disabled or not.
+
+Author: Will Schroeder (@harmj0y)  
+License: BSD 3-Clause  
+Required Dependencies: PSReflect, Get-TokenInformation  
+
+.DESCRIPTION
+
+First, if a process ID is passed, then the process is opened using OpenProcess(),
+otherwise GetCurrentProcess() is used to open up a pseudohandle to the current process.
+OpenProcessToken() is then used to get a handle to the specified process token. The token
+is then passed to Get-TokenInformation to query the current token groups for the specified
+token.
+
+.PARAMETER Id
+
+The process ID to enumerate token groups for, otherwise defaults to the current process.
+
+.EXAMPLE
+
+Get-ProcessTokenGroup
+
+SID                          Attributes         TokenHandle           ProcessId
+---                          ----------         -----------           ---------
+S-1-5-21-8901718... ...SE_GROUP_ENABLED                1616                3684
+S-1-1-0             ...SE_GROUP_ENABLED                1616                3684
+S-1-5-32-544        ..., SE_GROUP_OWNER                1616                3684
+S-1-5-32-545        ...SE_GROUP_ENABLED                1616                3684
+S-1-5-4             ...SE_GROUP_ENABLED                1616                3684
+S-1-2-1             ...SE_GROUP_ENABLED                1616                3684
+S-1-5-11            ...SE_GROUP_ENABLED                1616                3684
+S-1-5-15            ...SE_GROUP_ENABLED                1616                3684
+S-1-5-5-0-1053459   ...NTEGRITY_ENABLED                1616                3684
+S-1-2-0             ...SE_GROUP_ENABLED                1616                3684
+S-1-18-1            ...SE_GROUP_ENABLED                1616                3684
+S-1-16-12288                                           1616                3684
+
+.EXAMPLE
+
+Get-Process notepad | Get-ProcessTokenGroup
+
+SID                          Attributes         TokenHandle           ProcessId
+---                          ----------         -----------           ---------
+S-1-5-21-8901718... ...SE_GROUP_ENABLED                1892                2044
+S-1-1-0             ...SE_GROUP_ENABLED                1892                2044
+S-1-5-32-544        ...SE_FOR_DENY_ONLY                1892                2044
+S-1-5-32-545        ...SE_GROUP_ENABLED                1892                2044
+S-1-5-4             ...SE_GROUP_ENABLED                1892                2044
+S-1-2-1             ...SE_GROUP_ENABLED                1892                2044
+S-1-5-11            ...SE_GROUP_ENABLED                1892                2044
+S-1-5-15            ...SE_GROUP_ENABLED                1892                2044
+S-1-5-5-0-1053459   ...NTEGRITY_ENABLED                1892                2044
+S-1-2-0             ...SE_GROUP_ENABLED                1892                2044
+S-1-18-1            ...SE_GROUP_ENABLED                1892                2044
+S-1-16-8192                                            1892                2044
+
+
+.OUTPUTS
+
+PowerUp.TokenGroup
+
+Outputs a custom object containing the token group (SID/attributes) for the specified process.
+#>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSShouldProcess', '')]
+    [OutputType('PowerUp.TokenGroup')]
+    [CmdletBinding()]
+    Param(
+        [Parameter(Position = 0, ValueFromPipeline = $True, ValueFromPipelineByPropertyName = $True)]
+        [Alias('ProcessID')]
+        [UInt32]
+        [ValidateNotNullOrEmpty()]
+        $Id
+    )
+
+    PROCESS {
+        if ($PSBoundParameters['Id']) {
+            $ProcessHandle = $Kernel32::OpenProcess(0x400, $False, $Id);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+            if ($ProcessHandle -eq 0) {
+                Write-Warning ([ComponentModel.Win32Exception] $LastError)
+            }
+            else {
+                $ProcessID = $Id
+            }
+        }
+        else {
+            # open up a pseudo handle to the current process- don't need to worry about closing
+            $ProcessHandle = $Kernel32::GetCurrentProcess()
+            $ProcessID = $PID
+        }
+
+        if ($ProcessHandle) {
+            [IntPtr]$hProcToken = [IntPtr]::Zero
+            $TOKEN_QUERY = 0x0008
+            $Success = $Advapi32::OpenProcessToken($ProcessHandle, $TOKEN_QUERY, [ref]$hProcToken);$LastError = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
+
+            if ($Success) {
+                $TokenGroups = Get-TokenInformation -TokenHandle $hProcToken -InformationClass 'Groups'
+                $TokenGroups | ForEach-Object {
+                    $_ | Add-Member Noteproperty 'ProcessId' $ProcessID
+                    $_
+                }
+            }
+            else {
+                Write-Warning ([ComponentModel.Win32Exception] $LastError)
+            }
+
+            if ($PSBoundParameters['Id']) {
+                # close the handle if we used OpenProcess()
+                $Null = $Kernel32::CloseHandle($ProcessHandle)
+            }
+        }
+    }
+}
+
+
 
 function Get-SiteListPassword {
 <#
