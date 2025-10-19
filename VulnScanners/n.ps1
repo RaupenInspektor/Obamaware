@@ -1,4 +1,5 @@
 @ECHO OFF
+SETLOCAL ENABLEDELAYEDEXPANSION
 TITLE WinPEAS - Windows local Privilege Escalation Awesome Script
 COLOR 0F
 CALL :SetOnce
