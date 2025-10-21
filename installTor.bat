@@ -60,7 +60,6 @@ echo [+] torrc Succesfully Written
     echo echo   curl --socks5 127.0.0.1:9050 http://example.onion
     echo echo.
     echo echo Press Ctrl+C to stop Tor.
-    pause
 ) > "%TOR_DIR%\Start-Tor-Proxy.cmd"
 
 echo [+] Tor Starter Succesfully Written

