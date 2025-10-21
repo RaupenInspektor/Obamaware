@@ -1,6 +1,6 @@
 // receiver.cpp — C++ port of receiver.bat (debugging version)
 // Networking wired (WinHTTP). Payload execution remains DISABLED by design.
-// Build: cl /EHsc receiver.cpp /link Shlwapi.lib Winhttp.lib
+// Build: g++ -std=c++17 -O2 receiver.cpp -o receiver.exe -lshlwapi -lwinhttp
 
 #include <windows.h>
 #include <shlwapi.h>

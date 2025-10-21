@@ -4,6 +4,8 @@ import sys
 import requests
 import threading
 import time
+import shutil
+import subprocess
 
 ErrorSign = "\033[33m[!]\033[0m"
 Success = "\033[32m[+]\033[0m"
@@ -11,6 +13,7 @@ Status = "\033[94m[*]\033[0m"
 
 url = "http://raupe.ddns.net/cdr"
 body = "USER ### GET"
+
 
 
 class Obamaware(cmd.Cmd):
@@ -25,6 +28,19 @@ class Obamaware(cmd.Cmd):
         self.do_clear("")
         self.lastout = True
         self.inactivitycounter = 0
+
+    def which_gpp():
+        p = shutil.which("g++")
+        if not p:
+            return None
+        # Verify it runs
+        try:
+            out = subprocess.run([p, "--version"], capture_output=True, text=True, timeout=5)
+            if out.returncode == 0:
+                return p, out.stdout.splitlines()[0].strip()
+        except Exception:
+            pass
+        return None
     
     def safe_print(self, text):
         sys.stdout.write("\r")                    # Return to start of line
